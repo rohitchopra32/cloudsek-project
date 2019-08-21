@@ -5,11 +5,9 @@ import json
 
 class SendFileStatus(WebsocketConsumer):
     def connect(self):
-        self.room_name = self.scope['url_route']['kwargs']['task_id']
-        self.room_group_name = 'result_%s' % self.room_name
-        print(self.room_name, self.room_group_name)
+        self.room_group_name = 'task_result'
+        print(self.room_group_name)
 
-        # Join room group
         async_to_sync(self.channel_layer.group_add)(
             self.room_group_name,
             self.channel_name
@@ -25,19 +23,19 @@ class SendFileStatus(WebsocketConsumer):
         )
 
     def receive(self, text_data):
+        print(text_data)
         text_data_json = json.loads(text_data)
-        message = text_data_json['message']
+        message = text_data_json['task_id']
 
-        # Send message to room group
         async_to_sync(self.channel_layer.group_send)(
             self.room_group_name,
             {
-                'type': 'message',
-                'message': message
+                'type': 'result',
+                'result': message
             }
         )
 
-    def chat_message(self, event):
+    def result(self, event):
         result = event['result']
 
         # Send message to WebSocket

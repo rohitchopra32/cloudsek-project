@@ -2,17 +2,160 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Titlehahahah</title>
+    <title>File Downloader</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.js" integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+    <script src="https://use.fontawesome.com/4cb4a4cc8a.js"></script>
+
 </head>
 <body>
-<h1>Hello</h1>
-{{ Worked }}
-{{ id }}
-{{ status }}
-<form action="/file-downloader/" method="post">
-     {% csrf_token %}
-    <input type="text" name="url">
-    <input type="submit" name="submit">
-</form>
+<div class="container-fluid">
+    <h1>Welcome To File Downloader</h1>
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#download-file-modal">
+        Download File
+    </button>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>task id</th>
+                <th>File Name</th>
+                <th>total file size</th>
+                <th>Downloaded</th>
+                <th>Pending</th>
+                <th>Speed</th>
+                <th>Status</th>
+                <th>Stop Downloading</th>
+                <th>Download File</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+                <tr id="{{ task.task_id }}">
+                    <td id="{{ task.task_id }}-task_id">{{ task.task_id }}</td>
+                    <td id="{{ task.task_id }}-file-name">{{ task.file_name }}</td>
+                    <td id="{{ task.task_id }}-total">{{ task.total_file_size }} Mb</td>
+                    <td id="{{ task.task_id }}-downloaded">{{ task.downloaded_file_size }} Mb</td>
+                    <td id="{{ task.task_id }}-pending">{{ task.pending }} Mb</td>
+                    <td id="{{ task.task_id }}-speed">0.0</td>
+                    <td id="{{ task.task_id }}-status">{{ task.status }}</td>
+                    <td>
+                        <a href="" class="stop" data-id="{{ task.task_id }}" id="{{ task.task_id }}-stop">
+                            <i class="fa fa-times"></i>
+                        </a>
+                    </td>
+                    <td id="{{ task.task_id }}-download">
+                        <a {% if task.downloaded_file %}href="{{ task.downloaded_file.url }}"{% endif %}>
+                            <i class="fa fa-download"></i>
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="modal" tabindex="-1" role="dialog" id="download-file-modal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Upload Url</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+        <form action="/file-downloader/upload-url/" method="post" id="urlform">
+            <div class="modal-body">
+                {% csrf_token %}
+                <div class="form-group">
+                  <input type="text" class="form-control" id="url" placeholder="Enter Url to download file" name="url">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Submit</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        var task_id = "{{ id }}";
+        var chatSocket = new WebSocket(
+            'ws://' + window.location.host +'/ws/'
+        );
+        chatSocket.onmessage = function(e) {
+            var data = JSON.parse(e.data);
+            if (data.result){
+                data = data.result;
+                if (data.is_downloading){
+                    $('#'+data.task_id+'-stop').data('downloading', true);
+                } else {
+                    $('#'+data.task_id+'-stop').data('downloading', '');
+                    $('#'+data.task_id+'-download').children('a').attr('href', data.file_url);
+                }
+                document.getElementById(data.task_id+'-'+'task_id').innerHTML = data.task_id;
+                document.getElementById(data.task_id+'-'+'total').innerHTML = data.total_file_size;
+                document.getElementById(data.task_id+'-'+'downloaded').innerHTML = data.downloaded;
+                document.getElementById(data.task_id+'-'+'pending').innerHTML = data.pending;
+                document.getElementById(data.task_id+'-'+'speed').innerHTML = data.speed;
+                document.getElementById(data.task_id+'-'+'status').innerHTML = data.status;
+                document.getElementById(data.task_id+'-'+'file-name').innerHTML = data.file_name;
+            }
+        };
+
+        chatSocket.onopen = function (ev) {
+            chatSocket.send(JSON.stringify({'task_id': task_id}))
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        $('#urlform').submit(function (e) {
+            e.preventDefault();
+            $.ajax({
+                url: $(this).attr('action'),
+                method: $(this).attr('method'),
+                data: {
+                    "csrfmiddlewaretoken": $('input[name="csrfmiddlewaretoken"]').val(),
+                    'url': $('input[name="url"]').val()
+                },
+                success: function (data) {
+                    console.log(data);
+                    window.location.reload()
+                },
+                error: function (data) {
+                    console.log(data);
+                }
+            });
+
+        });
+
+        $('.stop').click(function (e) {
+            e.preventDefault();
+            var downloading = $(this).data('downloading');
+            if (! downloading){
+                console.log('closed')
+                return
+            }
+            var task_id = $(this).data('id');
+            $.ajax({
+                url:'/file-downloader/' + task_id + '/stop/',
+                success: function (data) {
+                    console.log('Stopped');
+                    $('#'+task_id+'-status').text('Canceled');
+                },
+                error: function (error) {
+                    alert('Error');
+                }
+            })
+        })
+    });
+</script>
 </body>
 </html>
